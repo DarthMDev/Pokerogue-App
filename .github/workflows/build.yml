@@ -36,7 +36,7 @@ jobs:
             zip -r ../PokeRogue-Linux.zip *
             cd ..
           elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            cd mac-unpacked
+            cd mac-arm64
             zip -r ../PokeRogue-macOS.zip *
             cd ..
           fi
