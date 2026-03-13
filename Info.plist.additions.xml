@@ -1,0 +1,136 @@
+<!--
+  ════════════════════════════════════════════════════════════════════
+  Info.plist ADDITIONS for PokeRogue iOS Capacitor port
+  ════════════════════════════════════════════════════════════════════
+
+  These keys go INSIDE the top-level <dict> of:
+    ios/App/App/Info.plist
+
+  Do NOT replace the whole file — merge these into the existing dict.
+  ════════════════════════════════════════════════════════════════════
+-->
+
+  <!-- ── 1. App Transport Security ─────────────────────────────────
+       Allows WKWebView to load pokerogue.net and its subdomains.
+       We list domains explicitly rather than NSAllowsArbitraryLoads
+       so we're not turning off ATS wholesale.
+  -->
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <false/>
+    <key>NSExceptionDomains</key>
+    <dict>
+
+      <key>pokerogue.net</key>
+      <dict>
+        <key>NSIncludesSubdomains</key>
+        <true/>
+        <!-- Game assets load over HTTPS, so no need to allow HTTP -->
+        <key>NSExceptionAllowsInsecureHTTPLoads</key>
+        <false/>
+        <key>NSExceptionRequiresForwardSecrecy</key>
+        <false/>
+        <key>NSExceptionMinimumTLSVersion</key>
+        <string>TLSv1.2</string>
+      </dict>
+
+      <!-- Discord OAuth needs its own entry -->
+      <key>discord.com</key>
+      <dict>
+        <key>NSIncludesSubdomains</key>
+        <true/>
+        <key>NSExceptionAllowsInsecureHTTPLoads</key>
+        <false/>
+      </dict>
+      <key>discordapp.com</key>
+      <dict>
+        <key>NSIncludesSubdomains</key>
+        <true/>
+        <key>NSExceptionAllowsInsecureHTTPLoads</key>
+        <false/>
+      </dict>
+
+    </dict>
+  </dict>
+
+  <!-- ── 2. WKWebView cookie / storage permissions ─────────────────
+       iOS 17+ requires these to allow WKWebView cross-site cookies
+       (needed for Discord OAuth redirect back to pokerogue.net).
+  -->
+  <key>WKAppBoundDomains</key>
+  <array>
+    <string>pokerogue.net</string>
+  </array>
+
+  <!-- ── 3. Background modes ───────────────────────────────────────
+       Keeps the app alive briefly when backgrounded so mid-battle
+       state doesn't reset on a quick lock/unlock.
+       "audio" is a common workaround; "fetch" is cleaner for games.
+  -->
+  <key>UIBackgroundModes</key>
+  <array>
+    <string>fetch</string>
+  </array>
+
+  <!-- ── 4. UI orientation ─────────────────────────────────────────
+       PokeRogue is landscape-capable. Lock to landscape on iPhone,
+       allow all on iPad (the game itself manages orientation).
+       Remove portrait entries if you want landscape-only on iPhone.
+  -->
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+
+  <key>UISupportedInterfaceOrientations~ipad</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+
+  <!-- ── 5. Status bar ─────────────────────────────────────────────
+       Hide it so the game has the full screen.
+       Pair with StatusBar Capacitor plugin config in capacitor.config.ts.
+  -->
+  <key>UIStatusBarHidden</key>
+  <false/>
+  <key>UIStatusBarStyle</key>
+  <string>UIStatusBarStyleLightContent</string>
+  <key>UIViewControllerBasedStatusBarAppearance</key>
+  <true/>
+
+  <!-- ── 6. Safe area / notch ──────────────────────────────────────
+       Ensures the game content extends into the notch/Dynamic Island
+       area rather than being letterboxed.
+  -->
+  <key>UILaunchStoryboardName</key>
+  <string>LaunchScreen</string>
+
+  <!-- ── 7. Privacy descriptions (required by App Store / Xcode) ───
+       Even for sideloading, Xcode will warn/error without these
+       if any API touches these subsystems. Include defensively.
+  -->
+  <key>NSCameraUsageDescription</key>
+  <string>PokeRogue does not use the camera.</string>
+
+  <key>NSMicrophoneUsageDescription</key>
+  <string>PokeRogue does not use the microphone.</string>
+
+  <!-- ── 8. Capacitor scheme whitelist ─────────────────────────────
+       Required for Capacitor's internal bridge to work.
+       Must match the `scheme` value in capacitor.config.ts.
+  -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>pokerogue</string>
+      </array>
+    </dict>
+  </array>

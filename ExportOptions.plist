@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ExportOptions.plist — used by `xcodebuild -exportArchive`
+  For the fully unsigned CI build (GitHub Actions), we skip this file entirely
+  and just zip the .app from the archive 
+-->
+<plist version="1.0">
+<dict>
+
+  <!-- ── Signing method ────────────────────────────────────────── -->
+  <key>method</key>
+  <string>development</string>
+
+  <!-- ── Let Xcode pick the right cert automatically ───────────── -->
+  <key>signingStyle</key>
+  <string>automatic</string>
+
+  <!--
+    signingCertificate: leave commented out for automatic.
+    Uncomment and set to cert name for manual control:
+
+    <key>signingCertificate</key>
+    <string>Apple Development: example@email.com (XXXXXXXXXX)</string>
+  -->
+
+  <!--
+    teamID: only needed for paid accounts or manual signing.
+    Free accounts don't have a stable team ID — let Xcode manage it.
+
+    <key>teamID</key>
+    <string>XXXXXXXXXX</string>
+  -->
+
+  <!-- ── IPA packaging ──────────────────────────────────────────── -->
+  <!-- Embed the Swift/ObjC runtime dylibs so the IPA is self-contained -->
+  <key>compileBitcode</key>
+  <false/>
+
+  <!-- Strip Swift symbols to reduce IPA size slightly -->
+  <key>stripSwiftSymbols</key>
+  <true/>
+
+  <!-- Thin the IPA for the device we're sideloading to.            -->
+  <!-- Use "none" to keep a fat binary (works on any arm64 device).  -->
+  <key>thinning</key>
+  <string>none</string>
+
+  <!-- ── App extensions ─────────────────────────────────────────── -->
+  <!-- Not applicable for this app, but left for completeness -->
+  <key>embedOnDemandResourcesAssetPacksInBundle</key>
+  <false/>
+
+
+
+</dict>
+</plist>
