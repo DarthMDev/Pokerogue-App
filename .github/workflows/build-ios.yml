@@ -23,6 +23,7 @@ jobs:
       - name: Install Capacitor iOS
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/ios
+          npx cap add ios
           npx cap sync ios
     
       - name: Patch Info.plist
