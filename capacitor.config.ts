@@ -24,7 +24,7 @@ const config: CapacitorConfig = {
   ios: {
     // Keeps WKWebView cookies alive between app launches.
     // Critical so the player stays logged in.
-    contentInset: 'automatic',
+    contentInset: 'always',
     preferredContentMode: 'mobile',
     backgroundColor: '#000000', // Match PokeRogue's black background
 
