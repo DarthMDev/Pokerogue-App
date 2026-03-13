@@ -24,7 +24,7 @@ const config: CapacitorConfig = {
   ios: {
     // Keeps WKWebView cookies alive between app launches.
     // Critical so the player stays logged in.
-    contentInset: 'always',
+    contentInset: 'never',
     preferredContentMode: 'mobile',
     backgroundColor: '#000000', // Match PokeRogue's black background
 
@@ -61,7 +61,14 @@ const config: CapacitorConfig = {
                 javascript: `
                     (function() {
                         var s = document.createElement('style');
-                        s.textContent = 'canvas { touch-action: none !important; } * { -webkit-tap-highlight-color: transparent; }';
+                        s.textContent = [
+                            // Dynamic Island / notch — push game canvas down via CSS only,
+                            // not native insets, so touch coordinates stay aligned
+                            'body { padding-top: env(safe-area-inset-top, 0px) !important; box-sizing: border-box !important; }',
+                            // Fix touch events on canvas buttons
+                            'canvas { touch-action: none !important; }',
+                            '* { -webkit-tap-highlight-color: transparent; }'
+                        ].join(' ');
                         document.head.appendChild(s);
                     })();
                 `,
