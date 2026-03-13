@@ -62,9 +62,9 @@ const config: CapacitorConfig = {
                     (function() {
                         var s = document.createElement('style');
                         s.textContent = [
-                            // Dynamic Island / notch — push game canvas down via CSS only,
-                            // not native insets, so touch coordinates stay aligned
-                            'body { padding-top: env(safe-area-inset-top, 0px) !important; box-sizing: border-box !important; }',
+                            // // Dynamic Island / notch — push game canvas down via CSS only,
+                            // // not native insets, so touch coordinates stay aligned
+                            // 'body { padding-top: env(safe-area-inset-top, 0px) !important; box-sizing: border-box !important; }',
                             // Fix touch events on canvas buttons
                             'canvas { touch-action: none !important; }',
                             '* { -webkit-tap-highlight-color: transparent; }'
@@ -89,7 +89,7 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: 'Dark',
       backgroundColor: '#000000',
-      overlaysWebView: true,
+      overlaysWebView: false,
     },
   },
 };
