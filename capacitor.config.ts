@@ -51,7 +51,24 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: true,
     },
-
+    //  Inject touch fix into every page load
+    WebView: {
+        // Prevent iOS gesture recognizers swallowing canvas touch events
+        // This is what causes the dpad/buttons to feel unresponsive
+        allowsBackForwardNavigationGestures: false,
+        scripts: [
+            {
+                javascript: `
+                    (function() {
+                        var s = document.createElement('style');
+                        s.textContent = 'canvas { touch-action: none !important; } * { -webkit-tap-highlight-color: transparent; }';
+                        document.head.appendChild(s);
+                    })();
+                `,
+                injectionTime: 'atDocumentEnd',
+            }
+        ]
+    },
     // SplashScreen — hide it fast; the game has its own loading screen
     SplashScreen: {
       launchShowDuration: 800,
