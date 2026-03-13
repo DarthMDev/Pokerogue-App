@@ -1,0 +1,120 @@
+name: Build iOS IPA (Unsigned)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Capacitor iOS
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/ios
+          npx cap sync ios
+    
+      - name: Patch Info.plist
+        run: |
+            python3 - <<'EOF'
+            import plistlib, os
+
+            plist_path = 'ios/App/App/Info.plist'
+
+            with open(plist_path, 'rb') as f:
+                plist = plistlib.load(f)
+
+            # ATS exceptions
+            plist['NSAppTransportSecurity'] = {
+                'NSAllowsArbitraryLoads': False,
+                'NSExceptionDomains': {
+                    'pokerogue.net': {
+                        'NSIncludesSubdomains': True,
+                        'NSExceptionAllowsInsecureHTTPLoads': False,
+                        'NSExceptionRequiresForwardSecrecy': False,
+                        'NSExceptionMinimumTLSVersion': 'TLSv1.2',
+                    },
+                    'discord.com': {
+                        'NSIncludesSubdomains': True,
+                        'NSExceptionAllowsInsecureHTTPLoads': False,
+                    },
+                    'discordapp.com': {
+                        'NSIncludesSubdomains': True,
+                        'NSExceptionAllowsInsecureHTTPLoads': False,
+                    },
+                }
+            }
+
+            # WKAppBoundDomains (needed for cookie persistence on iOS 17+)
+            plist['WKAppBoundDomains'] = ['pokerogue.net']
+
+            # Background modes
+            plist['UIBackgroundModes'] = ['fetch']
+
+            # Orientations
+            plist['UISupportedInterfaceOrientations'] = [
+                'UIInterfaceOrientationPortrait',
+                'UIInterfaceOrientationLandscapeLeft',
+                'UIInterfaceOrientationLandscapeRight',
+            ]
+            plist['UISupportedInterfaceOrientations~ipad'] = [
+                'UIInterfaceOrientationPortrait',
+                'UIInterfaceOrientationPortraitUpsideDown',
+                'UIInterfaceOrientationLandscapeLeft',
+                'UIInterfaceOrientationLandscapeRight',
+            ]
+
+            # Status bar
+            plist['UIStatusBarStyle'] = 'UIStatusBarStyleLightContent'
+            plist['UIViewControllerBasedStatusBarAppearance'] = True
+
+            # Capacitor URL scheme
+            existing_url_types = plist.get('CFBundleURLTypes', [])
+            existing_url_types.append({
+                'CFBundleURLSchemes': ['pokerogue']
+            })
+            plist['CFBundleURLTypes'] = existing_url_types
+
+            with open(plist_path, 'wb') as f:
+                plistlib.dump(plist, f)
+
+            print("Info.plist patched successfully.")
+            EOF
+
+      - name: Build Archive (No Signing)
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package into unsigned IPA
+        run: |
+          mkdir -p $RUNNER_TEMP/Payload
+          cp -r "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" \
+            $RUNNER_TEMP/Payload/
+          cd $RUNNER_TEMP
+          zip -r PokeRogue-unsigned.ipa Payload/
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: PokeRogue-iOS-unsigned
+          path: $RUNNER_TEMP/PokeRogue-unsigned.ipa
+          retention-days: 30
