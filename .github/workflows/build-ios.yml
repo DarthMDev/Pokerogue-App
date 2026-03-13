@@ -28,16 +28,25 @@ jobs:
             @capacitor/cli \
             @capacitor/ios \
             @capacitor/status-bar \
-            @capacitor/splash-screen
-          # Confirm cap binary is resolvable
+            @capacitor/splash-screen \
+            @capacitor/assets
           ./node_modules/.bin/cap --version
+
+      - name: Prepare icon source for Capacitor Assets
+        run: |
+          # @capacitor/assets expects resources/icon.png as the source image.
+          # We use PR.png from the repo's icons/ folder.
+          mkdir -p resources
+          cp icons/PR.png resources/icon.png
+          echo "=== Icon source ready ==="
+          sips -g pixelWidth -g pixelHeight resources/icon.png
 
       - name: Add iOS platform (allow pod install failure)
         run: |
-          # cap add ios will fail at pod install due to deployment target mismatch
-          # but the Xcode project files we need ARE generated before it errors
+          # cap add ios fails at pod install due to deployment target mismatch,
+          # but the Xcode project files ARE generated before it errors, so we
+          # allow the failure and patch the target manually below.
           ./node_modules/.bin/cap add ios || true
-
           echo "=== Verifying project files exist ==="
           ls ios/App/
           echo ""
@@ -46,14 +55,13 @@ jobs:
 
       - name: Patch iOS deployment target to 16.0
         run: |
-          echo "=== Patching Podfile ==="
           python3 - <<'EOF'
           import re
 
+          # ── Patch Podfile ──────────────────────────────────────────
           with open('ios/App/Podfile', 'r') as f:
               podfile = f.read()
 
-          # Replace whatever version Capacitor generated with 16.0
           if re.search(r"platform :ios,", podfile):
               podfile = re.sub(
                   r"platform :ios, ['\"][0-9.]+['\"]",
@@ -61,20 +69,15 @@ jobs:
                   podfile
               )
           else:
-              # Insert at top if line is missing entirely
+              # Insert at top if missing entirely
               podfile = "platform :ios, '16.0'\n" + podfile
 
           with open('ios/App/Podfile', 'w') as f:
               f.write(podfile)
-
-          print("Podfile patched successfully:")
+          print("Podfile patched:")
           print(podfile[:400])
-          EOF
 
-          echo "=== Patching project.pbxproj ==="
-          python3 - <<'EOF'
-          import re
-
+          # ── Patch project.pbxproj ──────────────────────────────────
           path = 'ios/App/App.xcodeproj/project.pbxproj'
           with open(path, 'r') as f:
               content = f.read()
@@ -89,17 +92,20 @@ jobs:
 
           with open(path, 'w') as f:
               f.write(patched)
-
-          print(f"pbxproj patched: {count_before} entries found, {count_after} set to 16.0")
+          print(f"pbxproj: {count_before} entries found, {count_after} set to 16.0")
           EOF
 
       - name: Run pod install with corrected target
-        run: |
-          cd ios/App
-          pod install
+        run: cd ios/App && pod install
 
-      - name: Sync Capacitor (skip pod install, already done)
+      - name: Sync Capacitor
         run: ./node_modules/.bin/cap sync ios
+
+      - name: Generate iOS icons from PR.png
+        run: |
+          ./node_modules/.bin/capacitor-assets generate --ios
+          echo "=== Generated icons ==="
+          ls ios/App/App/Assets.xcassets/AppIcon.appiconset/
 
       - name: Patch Info.plist
         run: |
@@ -111,7 +117,7 @@ jobs:
           with open(plist_path, 'rb') as f:
               plist = plistlib.load(f)
 
-          # ATS — allow pokerogue.net and Discord OAuth domains
+          # ── ATS — allow pokerogue.net and Discord OAuth ────────────
           plist['NSAppTransportSecurity'] = {
               'NSAllowsArbitraryLoads': False,
               'NSExceptionDomains': {
@@ -132,13 +138,13 @@ jobs:
               }
           }
 
-          # WKAppBoundDomains — required for cookie persistence on iOS 17+
+          # ── WKWebView cookie persistence (iOS 17+) ─────────────────
           plist['WKAppBoundDomains'] = ['pokerogue.net']
 
-          # Background modes — keeps process alive on lock/app switch
+          # ── Background modes — keep process alive on lock/switch ───
           plist['UIBackgroundModes'] = ['fetch']
 
-          # Supported orientations — portrait + both landscapes
+          # ── Orientations ───────────────────────────────────────────
           plist['UISupportedInterfaceOrientations'] = [
               'UIInterfaceOrientationPortrait',
               'UIInterfaceOrientationLandscapeLeft',
@@ -151,11 +157,16 @@ jobs:
               'UIInterfaceOrientationLandscapeRight',
           ]
 
-          # Status bar
+          # ── Status bar ─────────────────────────────────────────────
           plist['UIStatusBarStyle'] = 'UIStatusBarStyleLightContent'
           plist['UIViewControllerBasedStatusBarAppearance'] = True
 
-          # Capacitor URL scheme — must match capacitor.config.ts
+          # ── Required for env(safe-area-inset-*) CSS to work ────────
+          # Without this, the Dynamic Island safe area CSS in index.html
+          # is ignored on some devices.
+          plist['UIRequiresFullScreen'] = True
+
+          # ── Capacitor URL scheme ───────────────────────────────────
           existing = plist.get('CFBundleURLTypes', [])
           existing.append({'CFBundleURLSchemes': ['pokerogue']})
           plist['CFBundleURLTypes'] = existing
@@ -179,10 +190,9 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             | xcpretty || true
 
-          # Confirm archive was created
-          echo "=== Archive contents ==="
+          echo "=== Verifying archive ==="
           ls "$RUNNER_TEMP/App.xcarchive/Products/Applications/" 2>/dev/null \
-            || (echo "Archive not found — xcodebuild may have failed" && exit 1)
+            || (echo "Archive not found — xcodebuild failed" && exit 1)
 
       - name: Package into unsigned IPA
         run: |

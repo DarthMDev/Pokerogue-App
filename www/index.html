@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
 
   <!--
-    viewport: width=device-width is important so the game canvas scales
-    correctly on iPhone/iPad. user-scalable=no prevents accidental pinch-zoom
-    while the player is tapping battle menus.
+    viewport-fit=cover lets content extend edge-to-edge behind the
+    Dynamic Island / notch. We then use env(safe-area-inset-*) in CSS
+    to push content clear of the cutout.
   -->
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0,
@@ -18,18 +18,40 @@
     /* ─── Reset ──────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html, body {
-      width: 100%; height: 100%;
+    html {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      /*
+        Push the entire page below the Dynamic Island / notch.
+        env(safe-area-inset-top) = ~59px on iPhone 14 Pro+
+                                 = ~44px on older notch phones
+                                 = 0 on flat-top phones
+        max() ensures a minimum offset even if the inset reports 0
+        but a status bar is still present.
+      */
+      padding-top: env(safe-area-inset-top);
+      padding-top: max(env(safe-area-inset-top), 0px);
+    }
+
+    body {
+      width: 100%;
+      /* Subtract the top inset so the game still fills the remaining space */
+      height: calc(100% - env(safe-area-inset-top, 0px));
       background: #000;
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       -webkit-text-size-adjust: 100%;
+      /* Respect the bottom home-bar inset on Face ID phones */
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 
     /* ─── Loading screen (shown while WKWebView warms up) ───── */
     #loader {
       position: fixed;
-      inset: 0;
+      /* Sit below Dynamic Island */
+      top: env(safe-area-inset-top, 0px);
+      left: 0; right: 0; bottom: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -78,16 +100,14 @@
     .pokeball::after {
       content: '';
       position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 14px;
-      height: 14px;
+      top: 50%; left: 50%;
+      width: 14px; height: 14px;
       border-radius: 50%;
       background: #fff;
       border: 3px solid #000;
       transform: translate(-50%, -50%);
     }
-    .pokeball-top { /* red half */
+    .pokeball-top {
       position: absolute;
       top: 0; left: 0; right: 0;
       height: 50%;
@@ -95,9 +115,7 @@
       border-radius: 56px 56px 0 0;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .status-text {
       color: #aaa;
@@ -106,15 +124,16 @@
       text-transform: uppercase;
     }
 
-    /* ─── Toolbar (replaces Electron's menu bar) ─────────────── */
+    /* ─── Utility toolbar ────────────────────────────────────── */
     /*
-      On iOS we can't have a native menu bar, so we inject a small
-      floating toolbar the player can toggle with a swipe-up gesture
-      or the ⚙ button. Mirrored from the Electron utility shortcuts.
+      Replaces Electron's native menu bar.
+      Anchored above the home-bar safe area at the bottom.
+      Hidden off-screen by default; revealed by tapping the handle.
     */
     #toolbar {
       position: fixed;
-      bottom: env(safe-area-inset-bottom, 0);
+      /* Sit above the home bar */
+      bottom: env(safe-area-inset-bottom, 0px);
       left: 0; right: 0;
       height: 52px;
       background: rgba(10, 10, 10, 0.92);
@@ -153,12 +172,17 @@
     }
 
     .tool-btn:active { background: rgba(255,255,255,0.08); }
-    .tool-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .tool-btn svg {
+      width: 20px; height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+    }
 
-    /* Toggle handle — swipe up from bottom to reveal toolbar */
+    /* Swipe handle — tap to reveal toolbar */
     #toolbar-handle {
       position: fixed;
-      bottom: env(safe-area-inset-bottom, 0);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
       left: 50%;
       transform: translateX(-50%);
       width: 60px;
@@ -172,8 +196,7 @@
 
     #toolbar-handle::after {
       content: '';
-      width: 36px;
-      height: 4px;
+      width: 36px; height: 4px;
       border-radius: 2px;
       background: rgba(255,255,255,0.25);
     }
@@ -191,13 +214,13 @@
     <div class="status-text" id="status-msg">Connecting…</div>
   </div>
 
-  <!-- Swipe handle to reveal toolbar -->
+  <!-- Handle to reveal toolbar -->
   <div id="toolbar-handle" onclick="toggleToolbar()"></div>
 
-  <!-- Utility toolbar (replaces Electron's menu bar shortcuts) -->
+  <!-- Utility toolbar -->
   <div id="toolbar">
 
-    <!-- Reload (mirrors Ctrl+R / F5 in Electron) -->
+    <!-- Soft Reset (mirrors Ctrl+R / F5) -->
     <button class="tool-btn" onclick="reloadGame()" title="Soft Reset">
       <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
       Reset
@@ -209,7 +232,7 @@
       Chart
     </button>
 
-    <!-- pkmn.help calculator (mirrors Ctrl+T) -->
+    <!-- pkmn.help (mirrors Ctrl+T) -->
     <button class="tool-btn" onclick="openTool('https://pkmn.help')" title="Type Calculator">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       Calc
@@ -221,7 +244,7 @@
       Dex
     </button>
 
-    <!-- Team builder (mirrors Ctrl+B) -->
+    <!-- Team Builder (mirrors Ctrl+B) -->
     <button class="tool-btn" onclick="openTool('https://marriland.com/tools/team-builder/')" title="Team Builder">
       <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Team
@@ -236,10 +259,10 @@
   </div>
 
   <script>
-    // ─── Config ───────────────────────────────────────────────────
+    // ─── Config ───────────────────────────────────────────────
     const GAME_URL = 'https://pokerogue.net';
 
-    // ─── Loading screen helpers ───────────────────────────────────
+    // ─── Loading screen ───────────────────────────────────────
     const loader    = document.getElementById('loader');
     const statusMsg = document.getElementById('status-msg');
 
@@ -247,11 +270,10 @@
 
     function hideLoader() {
       loader.classList.add('hidden');
-      // Remove from DOM after fade
       setTimeout(() => loader.remove(), 500);
     }
 
-    // ─── Toolbar toggle ───────────────────────────────────────────
+    // ─── Toolbar ──────────────────────────────────────────────
     const toolbar = document.getElementById('toolbar');
     let toolbarVisible = false;
 
@@ -260,7 +282,6 @@
       toolbar.classList.toggle('visible', toolbarVisible);
     }
 
-    // Hide toolbar when tapping outside it
     document.addEventListener('click', (e) => {
       if (toolbarVisible &&
           !toolbar.contains(e.target) &&
@@ -270,55 +291,40 @@
       }
     });
 
-    // ─── Game actions ─────────────────────────────────────────────
+    // ─── Game actions ─────────────────────────────────────────
 
-    // Mirrors Ctrl+R / F5 — soft resets via Capacitor's WebView message
     function reloadGame() {
       toggleToolbar();
-      // Give the toolbar time to close before reload flicker
       setTimeout(() => {
-        if (window.location.href.includes(GAME_URL.replace('https://', ''))) {
+        if (window.location.href.includes('pokerogue.net')) {
           window.location.reload();
         } else {
-          // We're in a utility tab — go back to game
           window.location.href = GAME_URL;
         }
       }, 150);
     }
 
-    // Opens external utility URLs in the same WebView.
-    // Since we set allowNavigation for pokerogue.net in capacitor.config.ts,
-    // everything else will open in Safari via Capacitor Browser plugin.
-    // For the simple inline tools (pkmn.help etc) we navigate in-place.
     function openTool(url) {
       toggleToolbar();
-      // Check if Capacitor Browser plugin is available (optional dep)
       if (window.Capacitor && window.Capacitor.isPluginAvailable('Browser')) {
         window.Capacitor.Plugins.Browser.open({ url });
       } else {
-        // Fallback: open in same WebView
-        // The user can swipe back (iOS navigation gesture) to return to game
         window.location.href = url;
       }
     }
 
-    // ─── Startup: redirect to game ────────────────────────────────
+    // ─── Startup redirect ─────────────────────────────────────
     //
     // When capacitor.config.ts has server.url set, Capacitor loads
-    // pokerogue.net directly and this script never runs in production.
-    //
-    // This block is the fallback for local `npx cap serve` testing
-    // or if server.url is removed for offline-first builds.
-    //
+    // pokerogue.net directly and this script is never reached in
+    // production. This block is the fallback for local dev / testing.
     (async function init() {
-      // Are we already on the game? (server.url redirect already happened)
       if (window.location.hostname === 'pokerogue.net' ||
           window.location.hostname.endsWith('.pokerogue.net')) {
         hideLoader();
         return;
       }
 
-      // Check network before redirecting
       setStatus('Checking connection…');
       try {
         const probe = await fetch(GAME_URL + '/favicon.ico', {
@@ -333,21 +339,18 @@
           setStatus('Server unreachable. Check your connection.');
         }
       } catch (err) {
-        // Offline or network error
         setStatus('No connection — online mode requires internet.');
         console.warn('[PokeRogue] Network probe failed:', err);
       }
     })();
 
-    // ─── WKWebView scroll lock ─────────────────────────────────────
-    // Prevent the rubber-band bounce that feels wrong for a game.
+    // ─── Prevent rubber-band scroll on body ───────────────────
     document.addEventListener('touchmove', (e) => {
       if (e.target === document.body) e.preventDefault();
     }, { passive: false });
 
-    // ─── iOS safe-area keyboard handling ─────────────────────────
-    // When the on-screen keyboard appears (e.g. login form), shift
-    // the game view up so input fields aren't hidden.
+    // ─── Keyboard safe-area shift ─────────────────────────────
+    // Shifts the view up when the iOS keyboard appears (login form etc.)
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', () => {
         document.documentElement.style.setProperty(
